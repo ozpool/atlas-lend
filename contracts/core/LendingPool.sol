@@ -10,6 +10,10 @@ contract LendingPool is ILendingPool, ReentrancyGuard {
     uint256 public constant LTV = 75;
     uint256 public constant LTV_PRECISION = 100;
 
+    /// @dev Liquidation threshold (85%)
+    uint256 public constant LIQUIDATION_THRESHOLD = 85;
+    uint256 public constant THRESHOLD_PRECISION = 100;
+
     /// @dev user => asset => deposited amount
     mapping(address => mapping(address => uint256)) internal balances;
 
@@ -22,11 +26,6 @@ contract LendingPool is ILendingPool, ReentrancyGuard {
     event Borrow(address indexed user, address indexed asset, uint256 amount);
     event Repay(address indexed user, address indexed asset, uint256 amount);
 
-    /**
-     * @notice Repay borrowed asset
-     * @param asset The token address being repaid
-     * @param amount Amount to repay or type(uint256).max to repay full debt
-     */
     function repay(address asset, uint256 amount)
         external
         nonReentrant
@@ -48,10 +47,6 @@ contract LendingPool is ILendingPool, ReentrancyGuard {
         emit Repay(msg.sender, asset, repayAmount);
     }
 
-    /**
-     * @dev Internal repay logic.
-     * Reduces user's debt for a given asset.
-     */
     function _repay(
         address user,
         address asset,
