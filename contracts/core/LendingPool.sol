@@ -26,10 +26,12 @@ contract LendingPool is ILendingPool, ReentrancyGuard {
     event Borrow(address indexed user, address indexed asset, uint256 amount);
     event Repay(address indexed user, address indexed asset, uint256 amount);
 
-    function repay(address asset, uint256 amount)
-        external
-        nonReentrant
-    {
+    /**
+     * @notice Repay borrowed asset
+     * @param asset The token address being repaid
+     * @param amount Amount to repay or type(uint256).max to repay full debt
+     */
+    function repay(address asset, uint256 amount) external nonReentrant {
         uint256 repayAmount = amount;
 
         if (amount == type(uint256).max) {
@@ -38,15 +40,15 @@ contract LendingPool is ILendingPool, ReentrancyGuard {
 
         repayAmount = _repay(msg.sender, asset, repayAmount);
 
-        IERC20(asset).transferFrom(
-            msg.sender,
-            address(this),
-            repayAmount
-        );
+        IERC20(asset).transferFrom(msg.sender, address(this), repayAmount);
 
         emit Repay(msg.sender, asset, repayAmount);
     }
 
+    /**
+     * @dev Internal repay logic.
+     * Reduces user's debt for a given asset.
+     */
     function _repay(
         address user,
         address asset,
