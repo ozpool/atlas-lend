@@ -6,6 +6,10 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "../interfaces/ILendingPool.sol";
 
 contract LendingPool is ILendingPool, ReentrancyGuard {
+    /// @dev Loan-to-Value ratio (75%)
+    uint256 public constant LTV = 75;
+    uint256 public constant LTV_PRECISION = 100;
+
     /// @dev user => asset => deposited amount
     mapping(address => mapping(address => uint256)) internal balances;
 
