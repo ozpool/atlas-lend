@@ -21,4 +21,23 @@ contract LendingPool is ILendingPool, ReentrancyGuard {
 
     event Borrow(address indexed user, address indexed asset, uint256 amount);
     event Repay(address indexed user, address indexed asset, uint256 amount);
+
+    /**
+     * @dev Internal repay logic.
+     * Reduces user's debt for a given asset.
+     * Returns the actual repaid amount (caps to outstanding debt).
+     */
+    function _repay(
+        address user,
+        address asset,
+        uint256 amount
+    ) internal returns (uint256) {
+        uint256 debt = debts[user][asset];
+        require(debt > 0, "NO_OUTSTANDING_DEBT");
+
+        uint256 repayAmount = amount > debt ? debt : amount;
+        debts[user][asset] -= repayAmount;
+
+        return repayAmount;
+    }
 }
