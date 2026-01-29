@@ -9,6 +9,12 @@ contract LendingPool is ILendingPool, ReentrancyGuard {
     /// @dev user => asset => deposited amount
     mapping(address => mapping(address => uint256)) internal balances;
 
+    /// @dev user => asset => borrowed amount
+    mapping(address => mapping(address => uint256)) internal debts;
+
     event Deposit(address indexed user, address indexed asset, uint256 amount);
     event Withdraw(address indexed user, address indexed asset, uint256 amount);
+
+    event Borrow(address indexed user, address indexed asset, uint256 amount);
+    event Repay(address indexed user, address indexed asset, uint256 amount);
 }
