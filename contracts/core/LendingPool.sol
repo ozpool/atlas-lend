@@ -33,6 +33,14 @@ contract LendingPool is ILendingPool, ReentrancyGuard {
     event Borrow(address indexed user, address indexed asset, uint256 amount);
     event Repay(address indexed user, address indexed asset, uint256 amount);
 
+    event Liquidation(
+        address indexed liquidator,
+        address indexed user,
+        address asset,
+        uint256 debtRepaid,
+        uint256 collateralSeized
+    );
+
     function repay(address asset, uint256 amount)
         external
         nonReentrant
