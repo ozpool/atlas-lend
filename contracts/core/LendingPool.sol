@@ -3,9 +3,15 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "../interfaces/ILendingPool.sol";
+import "@openzeppelin/contracts/access/AccessControl.sol";
 
-contract LendingPool is ILendingPool, ReentrancyGuard {
+import "../interfaces/ILendingPool.sol";
+import "../interfaces/IInterestRateModel.sol";
+
+contract LendingPool is AccessControl, ReentrancyGuard {
+    bytes32 public constant PROTOCOL_ADMIN_ROLE =
+        keccak256("PROTOCOL_ADMIN_ROLE");
+
     /// @dev Loan-to-Value ratio (75%)
     uint256 public constant LTV = 75;
     uint256 public constant LTV_PRECISION = 100;
@@ -27,6 +33,9 @@ contract LendingPool is ILendingPool, ReentrancyGuard {
     /// @dev user => asset => borrowed amount
     mapping(address => mapping(address => uint256)) internal debts;
 
+    /// @dev Interest rate model
+    IInterestRateModel public interestRateModel;
+
     event Deposit(address indexed user, address indexed asset, uint256 amount);
     event Withdraw(address indexed user, address indexed asset, uint256 amount);
 
@@ -40,6 +49,16 @@ contract LendingPool is ILendingPool, ReentrancyGuard {
         uint256 debtRepaid,
         uint256 collateralSeized
     );
+
+    // ─────────────────────────────
+    // Constructor
+    // ─────────────────────────────
+    constructor(address _rateModel) {
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _grantRole(PROTOCOL_ADMIN_ROLE, msg.sender);
+
+        interestRateModel = IInterestRateModel(_rateModel);
+    }
 
     function repay(address asset, uint256 amount)
         external
