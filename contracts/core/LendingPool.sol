@@ -1,37 +1,46 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
+/* ───────────────────────────── Imports ───────────────────────────── */
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import "../interfaces/ILendingPool.sol";
 import "../interfaces/IInterestRateModel.sol";
+import "../libraries/HealthFactor.sol";
 
-contract LendingPool is AccessControl, ReentrancyGuard {
+/* ───────────────────────────── Contract ───────────────────────────── */
+contract LendingPool is
+    ILendingPool,
+    AccessControl,
+    ReentrancyGuard,
+    Pausable
+{
+    /* ───────────────────────── Roles ───────────────────────── */
     bytes32 public constant PROTOCOL_ADMIN_ROLE =
         keccak256("PROTOCOL_ADMIN_ROLE");
 
-    /// @dev Percentage precision (100 = 100%)
+    /* ───────────────────────── Risk Params (Configurable) ───────────────────────── */
+    uint256 public ltv;                     // e.g. 75
+    uint256 public liquidationThreshold;    // e.g. 85
+    uint256 public liquidationBonus;        // e.g. 105 (5% bonus)
+
     uint256 public constant PERCENT_PRECISION = 100;
+    uint256 public constant CLOSE_FACTOR = 50; // max 50% debt
 
-    /// @dev Risk parameters (configurable)
-    uint256 public ltv;                    // e.g. 75
-    uint256 public liquidationThreshold;   // e.g. 85
-    uint256 public liquidationBonus;       // e.g. 105
+    /* ───────────────────────── External Dependencies ───────────────────────── */
+    IInterestRateModel public interestRateModel;
 
-    /// @dev Close factor (max 50% of debt can be liquidated)
-    uint256 public constant CLOSE_FACTOR = 50;
-
+    /* ───────────────────────── Storage ───────────────────────── */
     /// @dev user => asset => deposited amount
     mapping(address => mapping(address => uint256)) internal balances;
 
     /// @dev user => asset => borrowed amount
     mapping(address => mapping(address => uint256)) internal debts;
 
-    /// @dev Interest rate model
-    IInterestRateModel public interestRateModel;
-
+    /* ───────────────────────── Events ───────────────────────── */
     event Deposit(address indexed user, address indexed asset, uint256 amount);
     event Withdraw(address indexed user, address indexed asset, uint256 amount);
 
@@ -46,24 +55,33 @@ contract LendingPool is AccessControl, ReentrancyGuard {
         uint256 collateralSeized
     );
 
-    // ─────────────────────────────
-    // Constructor
-    // ─────────────────────────────
+    /* ───────────────────────── Constructor ───────────────────────── */
     constructor(address _rateModel) {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(PROTOCOL_ADMIN_ROLE, msg.sender);
 
         interestRateModel = IInterestRateModel(_rateModel);
 
-        // Initialize risk parameters
+        // Risk parameters initialization
         ltv = 75;
         liquidationThreshold = 85;
         liquidationBonus = 105;
     }
 
+    /* ───────────────────────── Admin Controls ───────────────────────── */
+    function pause() external onlyRole(PROTOCOL_ADMIN_ROLE) {
+        _pause();
+    }
+
+    function unpause() external onlyRole(PROTOCOL_ADMIN_ROLE) {
+        _unpause();
+    }
+
+    /* ───────────────────────── User Actions ───────────────────────── */
     function repay(address asset, uint256 amount)
         external
         nonReentrant
+        whenNotPaused
     {
         uint256 repayAmount = amount;
 
@@ -82,9 +100,22 @@ contract LendingPool is AccessControl, ReentrancyGuard {
         emit Repay(msg.sender, asset, repayAmount);
     }
 
-    /**
-     * @dev Reverts if user's health factor falls below 1
-     */
+    /* ───────────────────────── Internal Logic ───────────────────────── */
+
+    function _repay(
+        address user,
+        address asset,
+        uint256 amount
+    ) internal returns (uint256) {
+        uint256 debt = debts[user][asset];
+        require(debt > 0, "NO_OUTSTANDING_DEBT");
+
+        uint256 repayAmount = amount > debt ? debt : amount;
+        debts[user][asset] -= repayAmount;
+
+        return repayAmount;
+    }
+
     function _validateHealthFactor(
         address user,
         address asset
@@ -96,9 +127,6 @@ contract LendingPool is AccessControl, ReentrancyGuard {
         require(hf >= 1e18, "HF_TOO_LOW");
     }
 
-    /**
-     * @dev Returns health factor after a hypothetical withdrawal
-     */
     function _healthFactorAfterWithdraw(
         address user,
         address asset,
@@ -114,17 +142,15 @@ contract LendingPool is AccessControl, ReentrancyGuard {
         );
     }
 
-    function _repay(
+    /* ───────────────────────── Views ───────────────────────── */
+    function getHealthFactor(
         address user,
-        address asset,
-        uint256 amount
-    ) internal returns (uint256) {
-        uint256 debt = debts[user][asset];
-        require(debt > 0, "NO_OUTSTANDING_DEBT");
-
-        uint256 repayAmount = amount > debt ? debt : amount;
-        debts[user][asset] -= repayAmount;
-
-        return repayAmount;
+        address asset
+    ) public view returns (uint256) {
+        return HealthFactor.calculate(
+            balances[user][asset],
+            debts[user][asset],
+            liquidationThreshold
+        );
     }
 }
