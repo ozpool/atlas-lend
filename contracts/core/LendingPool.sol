@@ -22,13 +22,13 @@ contract LendingPool is
     bytes32 public constant PROTOCOL_ADMIN_ROLE =
         keccak256("PROTOCOL_ADMIN_ROLE");
 
-    /* ───────────────────────── Risk Params (Configurable) ───────────────────────── */
+    /* ───────────────────────── Risk Params ───────────────────────── */
     uint256 public ltv;                     // e.g. 75
     uint256 public liquidationThreshold;    // e.g. 85
-    uint256 public liquidationBonus;        // e.g. 105 (5% bonus)
+    uint256 public liquidationBonus;        // e.g. 105
 
     uint256 public constant PERCENT_PRECISION = 100;
-    uint256 public constant CLOSE_FACTOR = 50; // max 50% debt
+    uint256 public constant CLOSE_FACTOR = 50;
 
     /* ───────────────────────── External Dependencies ───────────────────────── */
     IInterestRateModel public interestRateModel;
@@ -55,6 +55,9 @@ contract LendingPool is
         uint256 collateralSeized
     );
 
+    event ProtocolPaused(address indexed admin);
+    event ProtocolUnpaused(address indexed admin);
+
     /* ───────────────────────── Constructor ───────────────────────── */
     constructor(address _rateModel) {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
@@ -62,7 +65,6 @@ contract LendingPool is
 
         interestRateModel = IInterestRateModel(_rateModel);
 
-        // Risk parameters initialization
         ltv = 75;
         liquidationThreshold = 85;
         liquidationBonus = 105;
@@ -71,10 +73,12 @@ contract LendingPool is
     /* ───────────────────────── Admin Controls ───────────────────────── */
     function pause() external onlyRole(PROTOCOL_ADMIN_ROLE) {
         _pause();
+        emit ProtocolPaused(msg.sender);
     }
 
     function unpause() external onlyRole(PROTOCOL_ADMIN_ROLE) {
         _unpause();
+        emit ProtocolUnpaused(msg.sender);
     }
 
     /* ───────────────────────── User Actions ───────────────────────── */
@@ -101,7 +105,6 @@ contract LendingPool is
     }
 
     /* ───────────────────────── Internal Logic ───────────────────────── */
-
     function _repay(
         address user,
         address asset,
