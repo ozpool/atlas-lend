@@ -62,6 +62,38 @@ contract LendingPool is ILendingPool, ReentrancyGuard {
         emit Repay(msg.sender, asset, repayAmount);
     }
 
+    /**
+     * @dev Reverts if user's health factor falls below 1
+     */
+    function _validateHealthFactor(
+        address user,
+        address asset
+    ) internal view {
+        uint256 debt = debts[user][asset];
+        if (debt == 0) return;
+
+        uint256 hf = getHealthFactor(user, asset);
+        require(hf >= 1e18, "HF_TOO_LOW");
+    }
+
+    /**
+     * @dev Returns health factor after a hypothetical withdrawal
+     */
+    function _healthFactorAfterWithdraw(
+        address user,
+        address asset,
+        uint256 withdrawAmount
+    ) internal view returns (uint256) {
+        uint256 remainingCollateral =
+            balances[user][asset] - withdrawAmount;
+
+        return HealthFactor.calculate(
+            remainingCollateral,
+            debts[user][asset],
+            LIQUIDATION_THRESHOLD
+        );
+    }
+
     function _repay(
         address user,
         address asset,
