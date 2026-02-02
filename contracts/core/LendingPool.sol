@@ -40,6 +40,9 @@ contract LendingPool is
     /// @dev user => asset => borrowed amount
     mapping(address => mapping(address => uint256)) internal debts;
 
+    /// @dev total deposits across all users/assets (accounting metric)
+    uint256 public totalDeposits;
+
     /* ───────────────────────── Events ───────────────────────── */
     event Deposit(address indexed user, address indexed asset, uint256 amount);
     event Withdraw(address indexed user, address indexed asset, uint256 amount);
@@ -82,6 +85,33 @@ contract LendingPool is
     }
 
     /* ───────────────────────── User Actions ───────────────────────── */
+
+    /**
+     * @notice Deposit collateral into the protocol
+     * @dev CEI-compliant and reentrancy-protected
+     */
+    function deposit(address asset, uint256 amount)
+        external
+        nonReentrant
+        whenNotPaused
+    {
+        /* ───── CHECKS ───── */
+        require(amount > 0, "INVALID_AMOUNT");
+
+        /* ───── EFFECTS ───── */
+        balances[msg.sender][asset] += amount;
+        totalDeposits += amount;
+
+        /* ───── INTERACTIONS ───── */
+        IERC20(asset).transferFrom(
+            msg.sender,
+            address(this),
+            amount
+        );
+
+        emit Deposit(msg.sender, asset, amount);
+    }
+
     function repay(address asset, uint256 amount)
         external
         nonReentrant
@@ -105,6 +135,7 @@ contract LendingPool is
     }
 
     /* ───────────────────────── Internal Logic ───────────────────────── */
+
     function _repay(
         address user,
         address asset,
@@ -146,6 +177,7 @@ contract LendingPool is
     }
 
     /* ───────────────────────── Views ───────────────────────── */
+
     function getHealthFactor(
         address user,
         address asset
