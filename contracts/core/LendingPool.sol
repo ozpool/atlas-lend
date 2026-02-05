@@ -32,4 +32,26 @@ contract LendingPool is ILendingPool, ReentrancyGuard {
 
         emit Deposit(msg.sender, asset, amount);
     }
+
+    /**
+     * @notice Withdraw ERC20 tokens from the lending pool
+     * @param asset The ERC20 token address
+     * @param amount The amount to withdraw
+     */
+    function withdraw(address asset, uint256 amount)
+        external
+        nonReentrant
+    {
+        require(asset != address(0), "INVALID_ASSET");
+        require(amount > 0, "INVALID_AMOUNT");
+        require(balances[msg.sender][asset] >= amount, "INSUFFICIENT_BALANCE");
+
+        // Effects
+        balances[msg.sender][asset] -= amount;
+
+        // Interactions
+        IERC20(asset).transfer(msg.sender, amount);
+
+        emit Withdraw(msg.sender, asset, amount);
+    }
 }
