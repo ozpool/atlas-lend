@@ -14,8 +14,6 @@ contract LendingPool is ILendingPool, ReentrancyGuard {
 
     /**
      * @notice Deposit ERC20 tokens into the lending pool
-     * @param asset The ERC20 token address
-     * @param amount The amount to deposit
      */
     function deposit(address asset, uint256 amount)
         external
@@ -24,10 +22,7 @@ contract LendingPool is ILendingPool, ReentrancyGuard {
         require(asset != address(0), "INVALID_ASSET");
         require(amount > 0, "INVALID_AMOUNT");
 
-        // Effects
         balances[msg.sender][asset] += amount;
-
-        // Interactions
         IERC20(asset).transferFrom(msg.sender, address(this), amount);
 
         emit Deposit(msg.sender, asset, amount);
@@ -35,8 +30,6 @@ contract LendingPool is ILendingPool, ReentrancyGuard {
 
     /**
      * @notice Withdraw ERC20 tokens from the lending pool
-     * @param asset The ERC20 token address
-     * @param amount The amount to withdraw
      */
     function withdraw(address asset, uint256 amount)
         external
@@ -46,12 +39,20 @@ contract LendingPool is ILendingPool, ReentrancyGuard {
         require(amount > 0, "INVALID_AMOUNT");
         require(balances[msg.sender][asset] >= amount, "INSUFFICIENT_BALANCE");
 
-        // Effects
         balances[msg.sender][asset] -= amount;
-
-        // Interactions
         IERC20(asset).transfer(msg.sender, amount);
 
         emit Withdraw(msg.sender, asset, amount);
+    }
+
+    /**
+     * @notice Get user balance for an asset
+     */
+    function balanceOf(address user, address asset)
+        external
+        view
+        returns (uint256)
+    {
+        return balances[user][asset];
     }
 }
