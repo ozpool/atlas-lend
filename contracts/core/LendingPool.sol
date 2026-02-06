@@ -54,4 +54,23 @@ contract LendingPool is ILendingPool, ReentrancyGuard {
 
         emit Borrow(msg.sender, asset, amount);
     }
-}
+
+    /**
+     * @notice Repay borrowed assets
+     */
+    function repay(address asset, uint256 amount)
+        external
+        nonReentrant
+    {
+        uint256 debt = debts[msg.sender][asset];
+        require(debt > 0, "NO_DEBT");
+
+        uint256 repayAmount = amount > debt ? debt : amount;
+
+        IERC20(asset).transferFrom(
+            msg.sender,
+            address(this),
+            repayAmount
+        );
+
+        debts[msg.sender][asset] -=
