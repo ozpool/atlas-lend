@@ -18,13 +18,11 @@ contract LendingPool is ILendingPool, ReentrancyGuard {
 
     event Deposit(address indexed user, address indexed asset, uint256 amount);
     event Withdraw(address indexed user, address indexed asset, uint256 amount);
-
     event Borrow(address indexed user, address indexed asset, uint256 amount);
     event Repay(address indexed user, address indexed asset, uint256 amount);
 
     /**
-     * @dev Calculates the maximum borrowable amount for a user
-     *      based on their collateral and LTV.
+     * @dev Calculates the maximum borrowable amount based on collateral and LTV
      */
     function _maxBorrowable(
         address user,
@@ -32,5 +30,28 @@ contract LendingPool is ILendingPool, ReentrancyGuard {
     ) internal view returns (uint256) {
         uint256 collateral = balances[user][asset];
         return (collateral * LTV) / LTV_PRECISION;
+    }
+
+    /**
+     * @notice Borrow assets against deposited collateral
+     */
+    function borrow(address asset, uint256 amount)
+        external
+        nonReentrant
+    {
+        require(amount > 0, "INVALID_AMOUNT");
+
+        uint256 maxBorrow = _maxBorrowable(msg.sender, asset);
+        uint256 currentDebt = debts[msg.sender][asset];
+
+        require(
+            currentDebt + amount <= maxBorrow,
+            "INSUFFICIENT_COLLATERAL"
+        );
+
+        debts[msg.sender][asset] += amount;
+        IERC20(asset).transfer(msg.sender, amount);
+
+        emit Borrow(msg.sender, asset, amount);
     }
 }
