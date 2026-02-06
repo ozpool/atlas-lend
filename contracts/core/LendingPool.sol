@@ -73,4 +73,14 @@ contract LendingPool is ILendingPool, ReentrancyGuard {
             repayAmount
         );
 
-        debts[msg.sender][asset] -=
+        debts[msg.sender][asset] -= repayAmount;
+
+        emit Repay(msg.sender, asset, repayAmount);
+    }
+
+    /**
+     * @notice Returns the current debt of a user for a given asset
+     */
+    function debtOf(address user, address asset)
+        external
+        view
