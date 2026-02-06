@@ -21,4 +21,16 @@ contract LendingPool is ILendingPool, ReentrancyGuard {
 
     event Borrow(address indexed user, address indexed asset, uint256 amount);
     event Repay(address indexed user, address indexed asset, uint256 amount);
+
+    /**
+     * @dev Calculates the maximum borrowable amount for a user
+     *      based on their collateral and LTV.
+     */
+    function _maxBorrowable(
+        address user,
+        address asset
+    ) internal view returns (uint256) {
+        uint256 collateral = balances[user][asset];
+        return (collateral * LTV) / LTV_PRECISION;
+    }
 }
