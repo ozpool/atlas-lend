@@ -34,6 +34,21 @@ contract LendingPool is ILendingPool, ReentrancyGuard {
     }
 
     // -------------------------------------------------------
+    // VIEW: Borrow APR
+    // -------------------------------------------------------
+
+    function getCurrentBorrowRate()
+        external
+        view
+        returns (uint256)
+    {
+        return interestRateModel.getBorrowRate(
+            totalBorrows,
+            totalDeposits
+        );
+    }
+
+    // -------------------------------------------------------
     // DEPOSIT
     // -------------------------------------------------------
 
