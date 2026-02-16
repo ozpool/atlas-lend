@@ -10,6 +10,15 @@ in `.github/SECURITY.md`.
 AtlasLend uses a mock ERC20 stablecoin (`aUSD`) for development
 and testing purposes.
 
+## Repayment Logic
+
+- Repayment is capped to outstanding debt
+- Overpayment is safely handled
+- `repay(type(uint256).max)` repays full debt
+- Repaying without debt reverts
+
+This logic is designed to support future interest accrual.
+
 ### Characteristics
 - ERC20 compliant
 - Mintable only by the protocol owner
