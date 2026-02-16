@@ -9,6 +9,8 @@ contract LendingPool is ILendingPool, ReentrancyGuard {
     /// @dev Loan-to-Value ratio (75%)
     uint256 public constant LTV = 75;
     uint256 public constant LTV_PRECISION = 100;
+    uint256 public totalDeposits;
+    uint256 public totalBorrows;
 
     /// @dev user => asset => deposited amount
     mapping(address => mapping(address => uint256)) internal balances;
