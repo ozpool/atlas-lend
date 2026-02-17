@@ -15,6 +15,15 @@ and testing purposes.
 - Mintable only by the protocol owner
 - Used exclusively for protocol simulations
 
+## Liquidation Engine
+
+When a user's Health Factor drops below 1:
+- Anyone can liquidate their position
+- Liquidator repays debt
+- Collateral is seized with a bonus
+
+This mechanism ensures protocol solvency.
+
 ⚠️ **Note:**  
 This token is **not** intended for production use and does not represent
 a real stablecoin or value peg.
