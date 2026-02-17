@@ -17,6 +17,14 @@ contract LendingPool is ILendingPool, ReentrancyGuard {
     uint256 public constant LIQUIDATION_THRESHOLD = 85;
     uint256 public constant THRESHOLD_PRECISION = 100;
 
+    /// @dev Liquidation bonus (5%)
+    uint256 public constant LIQUIDATION_BONUS = 105;
+    uint256 public constant BONUS_PRECISION = 100;
+
+    /// @dev Total protocol accounting
+    uint256 public totalDeposits;
+    uint256 public totalBorrows;
+
     /// @dev user => asset => deposited amount
     mapping(address => mapping(address => uint256)) internal balances;
 
@@ -25,9 +33,16 @@ contract LendingPool is ILendingPool, ReentrancyGuard {
 
     event Deposit(address indexed user, address indexed asset, uint256 amount);
     event Withdraw(address indexed user, address indexed asset, uint256 amount);
-
     event Borrow(address indexed user, address indexed asset, uint256 amount);
     event Repay(address indexed user, address indexed asset, uint256 amount);
+
+    event Liquidation(
+        address indexed liquidator,
+        address indexed user,
+        address indexed asset,
+        uint256 repaidAmount,
+        uint256 collateralSeized
+    );
 
     /**
      * @notice Returns user's health factor for a specific asset
@@ -48,7 +63,6 @@ contract LendingPool is ILendingPool, ReentrancyGuard {
 
     /**
      * @dev Returns true if user is eligible for liquidation
-     * Health factor < 1.0 (1e18)
      */
     function _isLiquidatable(
         address user,
@@ -58,9 +72,58 @@ contract LendingPool is ILendingPool, ReentrancyGuard {
     }
 
     /**
+     * @notice Liquidate an unhealthy position
+     */
+    function liquidate(
+        address user,
+        address asset,
+        uint256 repayAmount
+    ) external nonReentrant {
+        require(_isLiquidatable(user, asset), "NOT_LIQUIDATABLE");
+        require(repayAmount > 0, "INVALID_AMOUNT");
+
+        uint256 userDebt = debts[user][asset];
+        require(userDebt > 0, "NO_DEBT");
+
+        uint256 actualRepay =
+            repayAmount > userDebt ? userDebt : repayAmount;
+
+        // Liquidator repays user's debt
+        IERC20(asset).transferFrom(
+            msg.sender,
+            address(this),
+            actualRepay
+        );
+
+        debts[user][asset] -= actualRepay;
+        totalBorrows -= actualRepay;
+
+        // Calculate collateral to seize (with liquidation bonus)
+        uint256 collateralSeized =
+            (actualRepay * LIQUIDATION_BONUS) / BONUS_PRECISION;
+
+        require(
+            balances[user][asset] >= collateralSeized,
+            "INSUFFICIENT_COLLATERAL"
+        );
+
+        balances[user][asset] -= collateralSeized;
+        totalDeposits -= collateralSeized;
+
+        // Send seized collateral to liquidator
+        IERC20(asset).transfer(msg.sender, collateralSeized);
+
+        emit Liquidation(
+            msg.sender,
+            user,
+            asset,
+            actualRepay,
+            collateralSeized
+        );
+    }
+
+    /**
      * @notice Repay borrowed asset
-     * @param asset The token address being repaid
-     * @param amount Amount to repay or type(uint256).max to repay full debt
      */
     function repay(address asset, uint256 amount) external nonReentrant {
         uint256 repayAmount = amount;
@@ -76,10 +139,6 @@ contract LendingPool is ILendingPool, ReentrancyGuard {
         emit Repay(msg.sender, asset, repayAmount);
     }
 
-    /**
-     * @dev Internal repay logic.
-     * Reduces user's debt for a given asset.
-     */
     function _repay(
         address user,
         address asset,
@@ -90,6 +149,7 @@ contract LendingPool is ILendingPool, ReentrancyGuard {
 
         uint256 repayAmount = amount > debt ? debt : amount;
         debts[user][asset] -= repayAmount;
+        totalBorrows -= repayAmount;
 
         return repayAmount;
     }
