@@ -15,6 +15,15 @@ and testing purposes.
 - Mintable only by the protocol owner
 - Used exclusively for protocol simulations
 
+## Health Factor
+The Health Factor measures a user's liquidation risk.
+
+HF ≥ 1   → Safe  
+HF < 1   → Subject to liquidation
+
+This calculation is independent of price oracles
+and assumes 1:1 valuation in the base phase.
+
 ⚠️ **Note:**  
 This token is **not** intended for production use and does not represent
 a real stablecoin or value peg.
