@@ -4,8 +4,11 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "../interfaces/ILendingPool.sol";
+import "../libraries/HealthFactor.sol";   // 👈 added
 
 contract LendingPool is ILendingPool, ReentrancyGuard {
+    using HealthFactor for uint256;       // 👈 added
+
     /// @dev Loan-to-Value ratio (75%)
     uint256 public constant LTV = 75;
     uint256 public constant LTV_PRECISION = 100;
@@ -25,6 +28,23 @@ contract LendingPool is ILendingPool, ReentrancyGuard {
 
     event Borrow(address indexed user, address indexed asset, uint256 amount);
     event Repay(address indexed user, address indexed asset, uint256 amount);
+
+    /**
+     * @notice Returns user's health factor for a specific asset
+     */
+    function getHealthFactor(
+        address user,
+        address asset
+    ) public view returns (uint256) {
+        uint256 collateral = balances[user][asset];
+        uint256 debt = debts[user][asset];
+
+        return HealthFactor.calculate(
+            collateral,
+            debt,
+            LIQUIDATION_THRESHOLD
+        );
+    }
 
     /**
      * @notice Repay borrowed asset
